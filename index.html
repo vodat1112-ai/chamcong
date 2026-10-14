@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chấm công nhân công</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;700;800&display=swap">
+<style>
+:root{--bg:#eceee9;--surface:#fff;--ink:#1c2a2d;--muted:#5f6e70;--line:#d3d8d2;--brand:#0f5c63;--on-brand:#fff;--go:#f2b21c;--on-go:#2b2000;--out:#c4452d;--ok:#2f7d4f;--sun:#eceeea;--leave:#fff3cd}
+@media (prefers-color-scheme:dark){:root{--bg:#121a1c;--surface:#1b272a;--ink:#e8eeee;--muted:#93a5a8;--line:#2d3d41;--brand:#5fb7bf;--on-brand:#06292d;--out:#ef7a63;--ok:#6cc690;--sun:#223034;--leave:#4a3f1a}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Be Vietnam Pro',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;font-weight:800;margin:0 0 2px}
+.muted{color:var(--muted);font-size:.9rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;margin-top:16px}
+.narrow{max-width:420px;margin-left:auto;margin-right:auto}
+label{display:block;font-weight:500;font-size:.9rem;margin:12px 0 4px}
+input,textarea{width:100%;padding:11px 12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+textarea{resize:vertical;min-height:84px}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:11px 16px;cursor:pointer;background:var(--brand);color:var(--on-brand)}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+button.mini{padding:2px 8px;font-size:.8rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.row>div{flex:1;min-width:140px}
+.tabs{display:flex;gap:8px;margin-top:16px}.tabs button{flex:1}
+.clock{font-size:3rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2}
+.punch{width:100%;font-size:1.25rem;padding:18px;margin-top:12px;background:var(--go);color:var(--on-go)}
+.punch.out{background:var(--out);color:#fff}
+.punch.done{background:var(--line);color:var(--muted)}
+.state{font-weight:700;margin-bottom:8px}.state.in{color:var(--ok)}
+.tablewrap{overflow-x:auto;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:760px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;white-space:nowrap}
+td.c,th.c{text-align:center}td.c{font-weight:800;color:var(--ok)}
+td.task{min-width:200px;white-space:pre-wrap}
+tr.sun td{background:var(--sun)}tr.leave td{background:var(--leave)}
+td.num{font-variant-numeric:tabular-nums}
+.err{color:var(--out);font-weight:500;margin-top:10px;min-height:1.2em}
+.hidden{display:none!important}
+.setup{border-left:4px solid var(--out)}
+code{background:var(--bg);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ====== CẤU HÌNH: dán 2 giá trị lấy từ Supabase vào đây ====== -->
+<script>
+const SUPABASE_URL = "https://wwgdcsfisjydssfwogeg.supabase.co";            // vd: https://abcdxyz.supabase.co
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Z2Rjc2Zpc2p5ZHNzZndvZ2VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5ODUxMjAsImV4cCI6MjEwNzU2MTEyMH0.G9zTq__m-j6WdwOipuGriBJCQ6NESIzaXsK1JCQFvxs";  // khoá "anon public"
+const EMAIL_DOMAIN = "chamcong.example.com";       // chỉ dùng nội bộ để ghép với số điện thoại
+</script>
+
+<header class="row">
+  <div><h1>Chấm công nhân công</h1><div class="muted" id="who">Chưa đăng nhập</div></div>
+  <button class="ghost hidden" id="logout" style="flex:0">Đăng xuất</button>
+</header>
+
+<div id="setup" class="card setup hidden"><b>Chưa cấu hình.</b> Mở <code>index.html</code>, dán <code>SUPABASE_URL</code> và <code>SUPABASE_ANON_KEY</code> theo README.</div>
+
+<section id="auth" class="card narrow hidden">
+  <div class="row"><b id="authTitle">Đăng nhập</b><button class="ghost" id="toggleAuth" style="flex:0;white-space:nowrap">Tạo tài khoản mới</button></div>
+  <label for="phone">Số điện thoại (tên đăng nhập)</label><input id="phone" type="tel" inputmode="numeric" autocomplete="username">
+  <label for="pass">Mật khẩu (từ 6 ký tự)</label><input id="pass" type="password" autocomplete="current-password">
+  <button id="authBtn" style="width:100%;margin-top:16px">Đăng nhập</button>
+  <div class="err" id="authErr"></div>
+</section>
+
+<section id="nameCard" class="card narrow hidden">
+  <b>Đặt tên nhân công</b>
+  <div class="muted">Tên này sẽ hiện trên bảng chấm công và file Excel.</div>
+  <label for="fullName">Họ và tên</label><input id="fullName" autocomplete="name">
+  <button id="saveName" style="width:100%;margin-top:16px">Lưu tên</button>
+  <div class="err" id="nameErr"></div>
+</section>
+
+<main id="app" class="hidden">
+  <div class="tabs"><button id="tabMe">Chấm công</button><button id="tabAdmin" class="ghost hidden">Quản lý</button></div>
+
+  <section id="viewMe">
+    <div class="card">
+      <div class="muted" id="today"></div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="state" id="state"></div>
+      <label for="task">Nội dung công việc hôm nay</label>
+      <textarea id="task" placeholder="Ví dụ: Trộn và đổ bê tông móng khu B"></textarea>
+      <button class="punch" id="punch">Vào ca</button>
+      <div class="err" id="punchErr"></div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><b>Bảng chấm công của tôi</b></div>
+        <div style="flex:0 0 170px"><label for="myMonth" style="margin:0">Tháng</label><input type="month" id="myMonth"></div>
+        <button id="myExport" style="flex:0;white-space:nowrap">Xuất Excel</button>
+      </div>
+      <div class="tablewrap"><table><thead id="dayHead"></thead><tbody id="myRows"></tbody></table></div>
+      <div class="muted" id="mySum" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <b>Đăng ký nghỉ phép</b>
+      <div class="row">
+        <div style="flex:0 0 170px"><label for="leaveDate">Ngày nghỉ</label><input type="date" id="leaveDate"></div>
+        <div><label for="leaveNote">Lý do</label><input id="leaveNote" placeholder="Việc gia đình, ốm..."></div>
+        <button id="leaveBtn" style="flex:0;white-space:nowrap">Đăng ký nghỉ</button>
+      </div>
+      <div class="err" id="leaveErr"></div>
+    </div>
+  </section>
+
+  <section id="viewAdmin" class="hidden">
+    <div class="card">
+      <div class="row">
+        <div style="flex:0 0 170px"><label for="aMonth" style="margin:0">Tháng</label><input type="month" id="aMonth"></div>
+        <button id="aExport" style="flex:0;white-space:nowrap">Xuất Excel tất cả</button>
+      </div>
+      <div class="tablewrap"><table style="min-width:560px"><thead><tr><th>STT</th><th>Nhân công</th><th>Số điện thoại</th><th class="c">Ngày làm</th><th class="c">Tổng giờ</th><th class="c">Nghỉ phép</th><th></th></tr></thead><tbody id="aRows"></tbody></table></div>
+      <div class="err" id="aErr"></div>
+    </div>
+    <div class="card hidden" id="detail">
+      <div class="row"><b id="detailName"></b><button id="dExport" style="flex:0;white-space:nowrap">Xuất Excel người này</button></div>
+      <div class="tablewrap"><table><thead id="dayHead2"></thead><tbody id="dRows"></tbody></table></div>
+      <div class="muted" id="dSum" style="margin-top:8px"></div>
+    </div>
+  </section>
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const show = (id, on) => $(id).classList.toggle('hidden', !on);
+const pad = n => String(n).padStart(2, '0');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const WD = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const todayStr = () => new Date().toLocaleDateString('en-CA');
+const curMonth = () => todayStr().slice(0, 7);
+const dmy = s => s.split('-').reverse().join('/');
+const fmtT = s => s ? new Date(s).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '';
+const hoursOf = r => (r && r.check_in && r.check_out) ? (new Date(r.check_out) - new Date(r.check_in)) / 36e5 : null;
+const hh = h => h == null ? '' : h.toFixed(2);
+const cleanPhone = s => s.replace(/[\s.\-]/g, '');
+
+const HEAD = '<tr><th>STT</th><th>Ngày làm</th><th>Thứ</th><th class="c">Có làm</th><th>Giờ vào</th><th>Giờ ra</th><th>Số giờ</th><th>Nội dung công việc</th><th class="c">Nghỉ phép</th><th>Ghi chú</th></tr>';
+$('dayHead').innerHTML = HEAD; $('dayHead2').innerHTML = HEAD;
+
+if (SUPABASE_URL.startsWith('DAN_')) { show('setup', true); throw new Error('Chưa cấu hình Supabase'); }
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let me, profile, todayRow, signup = false, workers = [], adminRows = [], selected = null;
+
+setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString('vi-VN'); }, 1000);
+
+/* ---------- Ngày trong tháng ---------- */
+function range(ym) { const [y, m] = ym.split('-').map(Number); return [`${ym}-01`, `${ym}-${pad(new Date(y, m, 0).getDate())}`]; }
+function buildDays(ym, rows) {
+  const [y, m] = ym.split('-').map(Number), n = new Date(y, m, 0).getDate(), map = {};
+  rows.forEach(r => map[r.work_date] = r);
+  return Array.from({length: n}, (_, i) => { const date = `${ym}-${pad(i + 1)}`; return {date, dow: new Date(y, m - 1, i + 1).getDay(), row: map[date] || null}; });
+}
+function stats(days) {
+  let work = 0, leave = 0, h = 0;
+  days.forEach(({row}) => { if (!row) return; if (row.status === 'leave') leave++; else { work++; h += hoursOf(row) || 0; } });
+  return {work, leave, h};
+}
+function renderDays(days, tbody, canCancel) {
+  tbody.innerHTML = days.map((d, i) => {
+    const r = d.row, leave = r?.status === 'leave', work = r && !leave;
+    const cancel = leave && canCancel && d.date >= todayStr() ? ` <button class="ghost mini" data-cancel="${r.id}">Hủy</button>` : '';
+    return `<tr class="${leave ? 'leave' : d.dow === 0 ? 'sun' : ''}"><td>${i + 1}</td><td class="num">${dmy(d.date)}</td><td>${WD[d.dow]}</td><td class="c">${work ? 'X' : ''}</td><td class="num">${work ? fmtT(r.check_in) : ''}</td><td class="num">${work ? fmtT(r.check_out) : ''}</td><td class="num">${work ? hh(hoursOf(r)) : ''}</td><td class="task">${esc(r?.task)}</td><td class="c">${leave ? 'X' : ''}</td><td>${esc(r?.note)}${cancel}</td></tr>`;
+  }).join('');
+}
+const sumText = s => `Ngày làm: ${s.work} · Tổng giờ: ${s.h.toFixed(1)} · Nghỉ phép: ${s.leave}`;
+
+/* ---------- Đăng nhập ---------- */
+$('toggleAuth').onclick = () => {
+  signup = !signup;
+  $('authTitle').textContent = $('authBtn').textContent = signup ? 'Tạo tài khoản' : 'Đăng nhập';
+  $('toggleAuth').textContent = signup ? 'Đã có tài khoản' : 'Tạo tài khoản mới';
+  $('authErr').textContent = '';
+};
+$('authBtn').onclick = async () => {
+  const phone = cleanPhone($('phone').value), password = $('pass').value, err = $('authErr');
+  err.textContent = '';
+  if (!/^\d{9,11}$/.test(phone)) return err.textContent = 'Số điện thoại chỉ gồm 9 đến 11 chữ số.';
+  if (password.length < 6) return err.textContent = 'Mật khẩu cần từ 6 ký tự.';
+  const email = `${phone}@${EMAIL_DOMAIN}`;
+  $('authBtn').disabled = true;
+  let res;
+  if (signup) {
+    res = await sb.auth.signUp({email, password, options: {data: {phone}}});
+    if (!res.error && !res.data.session) res = await sb.auth.signInWithPassword({email, password});
+  } else res = await sb.auth.signInWithPassword({email, password});
+  $('authBtn').disabled = false;
+  if (res.error) return err.textContent = /already|registered/i.test(res.error.message) ? 'Số điện thoại này đã có tài khoản. Hãy đăng nhập.' : /invalid login/i.test(res.error.message) ? 'Sai số điện thoại hoặc mật khẩu.' : 'Không thành công: ' + res.error.message;
+  init();
+};
+$('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+$('saveName').onclick = async () => {
+  const name = $('fullName').value.trim();
+  if (!name) return $('nameErr').textContent = 'Nhập họ và tên.';
+  const {error} = await sb.from('profiles').update({full_name: name}).eq('id', me.id);
+  if (error) return $('nameErr').textContent = error.message;
+  init();
+};
+
+async function init() {
+  const {data: {session}} = await sb.auth.getSession();
+  if (!session) { show('auth', true); show('app', false); show('nameCard', false); show('logout', false); return; }
+  me = session.user;
+  const {data} = await sb.from('profiles').select('*').eq('id', me.id).single();
+  profile = data || {full_name: '', phone: '', role: 'worker'};
+  show('auth', false); show('logout', true);
+  if (!profile.full_name) { show('nameCard', true); show('app', false); $('who').textContent = profile.phone; return; }
+  show('nameCard', false); show('app', true);
+  $('who').textContent = `${profile.full_name} · ${profile.phone}` + (profile.role === 'admin' ? ' (quản lý)' : '');
+  show('tabAdmin', profile.role === 'admin');
+  $('today').textContent = new Date().toLocaleDateString('vi-VN', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'});
+  if (!$('myMonth').value) { $('myMonth').value = curMonth(); $('aMonth').value = curMonth(); $('leaveDate').value = todayStr(); }
+  await Promise.all([loadToday(), loadMonth()]);
+}
+
+/* ---------- Chấm công hôm nay ---------- */
+async function loadToday() {
+  const {data} = await sb.from('attendance').select('*').eq('user_id', me.id).eq('work_date', todayStr()).maybeSingle();
+  todayRow = data;
+  const b = $('punch'), st = $('state'), t = $('task');
+  b.className = 'punch'; b.disabled = false; t.disabled = false;
+  if (!todayRow) { b.textContent = 'Vào ca'; st.textContent = 'Hôm nay chưa chấm công'; st.className = 'state'; t.value = ''; }
+  else if (todayRow.status === 'leave') { b.textContent = 'Hôm nay bạn đã đăng ký nghỉ phép'; b.classList.add('done'); b.disabled = true; t.disabled = true; st.textContent = 'Nghỉ phép'; st.className = 'state'; t.value = ''; }
+  else if (!todayRow.check_out) { b.textContent = 'Ra ca'; b.classList.add('out'); st.textContent = 'Đang làm việc từ ' + fmtT(todayRow.check_in); st.className = 'state in'; t.value = todayRow.task; }
+  else { b.textContent = 'Đã hoàn thành hôm nay'; b.classList.add('done'); b.disabled = true; t.disabled = true; st.textContent = `${fmtT(todayRow.check_in)} – ${fmtT(todayRow.check_out)}`; st.className = 'state'; t.value = todayRow.task; }
+}
+$('punch').onclick = async () => {
+  const err = $('punchErr'), task = $('task').value.trim(), now = new Date().toISOString();
+  err.textContent = '';
+  if (!todayRow && !task) return err.textContent = 'Nhập nội dung công việc hôm nay trước khi vào ca.';
+  $('punch').disabled = true;
+  const {error} = todayRow
+    ? await sb.from('attendance').update({check_out: now, task: task || todayRow.task}).eq('id', todayRow.id)
+    : await sb.from('attendance').insert({user_id: me.id, work_date: todayStr(), status: 'work', check_in: now, task});
+  if (error) err.textContent = 'Không lưu được: ' + error.message;
+  await Promise.all([loadToday(), loadMonth()]);
+};
+
+/* ---------- Bảng tháng của tôi ---------- */
+let myDays = [];
+async function loadMonth() {
+  const ym = $('myMonth').value || curMonth(), [from, to] = range(ym);
+  const {data, error} = await sb.from('attendance').select('*').eq('user_id', me.id).gte('work_date', from).lte('work_date', to);
+  if (error) return $('mySum').textContent = error.message;
+  myDays = buildDays(ym, data);
+  renderDays(myDays, $('myRows'), true);
+  $('mySum').textContent = sumText(stats(myDays));
+}
+$('myMonth').onchange = loadMonth;
+$('myRows').onclick = async e => {
+  const id = e.target.dataset.cancel; if (!id) return;
+  await sb.from('attendance').delete().eq('id', id);
+  await Promise.all([loadToday(), loadMonth()]);
+};
+$('leaveBtn').onclick = async () => {
+  const date = $('leaveDate').value, err = $('leaveErr'); err.textContent = '';
+  if (!date) return err.textContent = 'Chọn ngày nghỉ.';
+  const {error} = await sb.from('attendance').insert({user_id: me.id, work_date: date, status: 'leave', note: $('leaveNote').value.trim()});
+  if (error) return err.textContent = /duplicate|unique/i.test(error.message) ? 'Ngày này đã có chấm công hoặc đã đăng ký nghỉ.' : error.message;
+  $('leaveNote').value = '';
+  $('myMonth').value = date.slice(0, 7);
+  await Promise.all([loadToday(), loadMonth()]);
+};
+$('myExport').onclick = () => {
+  const wb = new ExcelJS.Workbook();
+  monthSheet(wb, profile, $('myMonth').value, myDays, new Set());
+  saveWb(wb, `cham-cong-${$('myMonth').value}-${profile.full_name}.xlsx`);
+};
+
+/* ---------- Quản lý ---------- */
+$('tabMe').onclick = () => { show('viewMe', true); show('viewAdmin', false); $('tabMe').className = ''; $('tabAdmin').className = 'ghost'; };
+$('tabAdmin').onclick = () => { show('viewMe', false); show('viewAdmin', true); $('tabAdmin').className = ''; $('tabMe').className = 'ghost'; loadAdmin(); };
+$('aMonth').onchange = loadAdmin;
+
+const daysOf = w => buildDays($('aMonth').value, adminRows.filter(r => r.user_id === w.id));
+async function loadAdmin() {
+  const ym = $('aMonth').value || curMonth(), [from, to] = range(ym);
+  const [p, a] = await Promise.all([
+    sb.from('profiles').select('*').order('full_name'),
+    sb.from('attendance').select('*').gte('work_date', from).lte('work_date', to)]);
+  if (p.error || a.error) return $('aErr').textContent = (p.error || a.error).message;
+  $('aErr').textContent = '';
+  workers = p.data.filter(x => x.role === 'worker'); adminRows = a.data;
+  $('aRows').innerHTML = workers.length ? workers.map((w, i) => {
+    const s = stats(daysOf(w));
+    return `<tr><td>${i + 1}</td><td>${esc(w.full_name || '(chưa đặt tên)')}</td><td>${esc(w.phone)}</td><td class="c">${s.work}</td><td class="c">${s.h.toFixed(1)}</td><td class="c">${s.leave}</td><td><button class="ghost mini" data-w="${w.id}">Chi tiết</button></td></tr>`;
+  }).join('') : '<tr><td colspan="7" class="muted">Chưa có nhân công nào đăng ký.</td></tr>';
+  if (selected) showDetail(selected);
+}
+$('aRows').onclick = e => { if (e.target.dataset.w) showDetail(e.target.dataset.w); };
+function showDetail(id) {
+  selected = id;
+  const w = workers.find(x => x.id === id); if (!w) return;
+  const d = daysOf(w);
+  $('detailName').textContent = `${w.full_name || w.phone} · tháng ${$('aMonth').value.split('-').reverse().join('/')}`;
+  renderDays(d, $('dRows'), false);
+  $('dSum').textContent = sumText(stats(d));
+  show('detail', true);
+  $('detail').scrollIntoView({behavior: 'smooth'});
+}
+$('dExport').onclick = () => {
+  const w = workers.find(x => x.id === selected), wb = new ExcelJS.Workbook();
+  monthSheet(wb, w, $('aMonth').value, daysOf(w), new Set());
+  saveWb(wb, `cham-cong-${$('aMonth').value}-${w.full_name || w.phone}.xlsx`);
+};
+$('aExport').onclick = () => {
+  const ym = $('aMonth').value, wb = new ExcelJS.Workbook(), used = new Set(['Tổng hợp']);
+  const ws = wb.addWorksheet('Tổng hợp');
+  ws.columns = [{width:6},{width:28},{width:16},{width:12},{width:12},{width:12}];
+  ws.mergeCells('A1:F1');
+  Object.assign(ws.getCell('A1'), {value: `TỔNG HỢP CHẤM CÔNG THÁNG ${ym.split('-').reverse().join('/')}`});
+  ws.getCell('A1').font = {bold: true, size: 16, color: {argb: 'FF0F5C63'}}; ws.getCell('A1').alignment = {horizontal: 'center'};
+  headerRow(ws, 3, ['STT', 'Nhân công', 'Số điện thoại', 'Số ngày làm', 'Tổng số giờ', 'Ngày nghỉ phép']);
+  let tw = 0, th = 0, tl = 0;
+  workers.forEach((w, i) => {
+    const s = stats(daysOf(w)); tw += s.work; th += s.h; tl += s.leave;
+    styleRow(ws.addRow([i + 1, w.full_name || '(chưa đặt tên)', w.phone, s.work, +s.h.toFixed(2), s.leave]), 6, null, [1, 3, 4, 5, 6]);
+  });
+  const t = ws.addRow(['', 'Tổng cộng', '', tw, +th.toFixed(2), tl]); styleRow(t, 6, 'FFD9ECEE', [1, 3, 4, 5, 6]); t.font = {bold: true};
+  workers.forEach(w => monthSheet(wb, w, ym, daysOf(w), used));
+  saveWb(wb, `cham-cong-tat-ca-${ym}.xlsx`);
+};
+
+/* ---------- Xuất Excel ---------- */
+const BORDER = {top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'}};
+function headerRow(ws, n, labels) {
+  const r = ws.getRow(n); r.values = labels; r.height = 32;
+  r.eachCell(c => { c.font = {bold: true, color: {argb: 'FFFFFFFF'}}; c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FF0F5C63'}}; c.alignment = {horizontal: 'center', vertical: 'middle', wrapText: true}; c.border = BORDER; });
+}
+function styleRow(r, cols, fill, centered) {
+  for (let i = 1; i <= cols; i++) {
+    const c = r.getCell(i); c.border = BORDER;
+    c.alignment = {vertical: 'middle', wrapText: true, horizontal: centered.includes(i) ? 'center' : 'left'};
+    if (fill) c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: fill}};
+  }
+}
+function monthSheet(wb, who, ym, days, used) {
+  let name = (who.full_name || who.phone).replace(/[\\\/?*\[\]:]/g, '').slice(0, 28) || 'Sheet', k = 2, base = name;
+  while (used.has(name)) name = `${base} ${k++}`; used.add(name);
+  const ws = wb.addWorksheet(name, {views: [{state: 'frozen', ySplit: 5}], pageSetup: {orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0}});
+  ws.columns = [{width:6},{width:13},{width:8},{width:10},{width:9},{width:9},{width:9},{width:50},{width:12},{width:28}];
+  ws.mergeCells('A1:J1');
+  const t = ws.getCell('A1'); t.value = `BẢNG CHẤM CÔNG THÁNG ${ym.split('-').reverse().join('/')}`;
+  t.font = {bold: true, size: 16, color: {argb: 'FF0F5C63'}}; t.alignment = {horizontal: 'center'};
+  ws.getCell('A2').value = `Nhân công: ${who.full_name || '(chưa đặt tên)'}`; ws.getCell('A2').font = {bold: true};
+  ws.getCell('A3').value = `Số điện thoại: ${who.phone}`;
+  headerRow(ws, 5, ['STT', 'Ngày làm', 'Thứ', 'Có làm (X)', 'Giờ vào', 'Giờ ra', 'Số giờ', 'Nội dung công việc', 'Nghỉ phép (X)', 'Ghi chú / lý do nghỉ']);
+  days.forEach((d, i) => {
+    const r = d.row, leave = r?.status === 'leave', work = r && !leave, h = work ? hoursOf(r) : null;
+    const row = ws.addRow([i + 1, dmy(d.date), WD[d.dow], work ? 'X' : '', work ? fmtT(r.check_in) : '', work ? fmtT(r.check_out) : '', h == null ? '' : +h.toFixed(2), r?.task || '', leave ? 'X' : '', r?.note || '']);
+    styleRow(row, 10, leave ? 'FFFFF3CD' : d.dow === 0 ? 'FFEDEDED' : null, [1, 2, 3, 4, 5, 6, 7, 9]);
+    row.getCell(7).numFmt = '0.00';
+  });
+  const first = 6, last = 5 + days.length, s = stats(days), tr = ws.getRow(last + 1);
+  ws.mergeCells(`A${last + 1}:C${last + 1}`);
+  tr.getCell(1).value = 'Tổng cộng';
+  tr.getCell(4).value = {formula: `COUNTIF(D${first}:D${last},"X")`, result: s.work};
+  tr.getCell(7).value = {formula: `SUM(G${first}:G${last})`, result: +s.h.toFixed(2)};
+  tr.getCell(9).value = {formula: `COUNTIF(I${first}:I${last},"X")`, result: s.leave};
+  styleRow(tr, 10, 'FFD9ECEE', [1, 4, 7, 9]); tr.font = {bold: true}; tr.getCell(7).numFmt = '0.00';
+  ws.getCell(`A${last + 3}`).value = 'Ô vàng: ngày nghỉ phép. Ô xám: Chủ nhật.'; ws.getCell(`A${last + 3}`).font = {italic: true, color: {argb: 'FF5F6E70'}};
+}
+async function saveWb(wb, filename) {
+  const buf = await wb.xlsx.writeBuffer();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download = filename.replace(/[\\\/:*?"<>|]/g, '_'); a.click();
+}
+
+init();
+</script>
+</body>
+</html>
