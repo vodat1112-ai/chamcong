@@ -98,7 +98,7 @@ const EMAIL_DOMAIN = "chamcong.example.com";       // chỉ dùng nội bộ đ�
       <div class="pos">
         <span class="lbl">Vị trí làm việc</span>
         <div class="opts">
-          <label class="chk" id="lblClimb"><input type="checkbox" id="posClimb" value="Leo cột"> Leo cột</label>
+          <label class="chk" id="lblClimb"><input type="checkbox" id="posClimb" value="Trèo cao"> Leo cột</label>
           <label class="chk" id="lblGround"><input type="checkbox" id="posGround" value="Dưới đất"> Dưới đất</label>
         </div>
       </div>
@@ -281,7 +281,7 @@ $('punch').onclick = async () => {
   const err = $('punchErr'), task = $('task').value.trim(), pos = getPos(), now = new Date(nowMs()).toISOString();
   err.textContent = '';
   if (!todayRow && !task) return err.textContent = 'Nhập nội dung công việc hôm nay trước khi vào ca.';
-  if (!pos) return err.textContent = 'Tick chọn 1 vị trí làm việc: Leo cột hoặc Dưới đất.';
+  if (!pos) return err.textContent = 'Tick chọn 1 vị trí làm việc: Trèo cao hoặc Dưới đất.';
   $('punch').disabled = true;
   const {error} = todayRow
     ? await sb.from('attendance').update({check_out: now, task: task || todayRow.task, position: pos}).eq('id', todayRow.id)
@@ -337,11 +337,23 @@ async function loadAdmin() {
   workers = p.data.filter(x => x.role === 'worker'); adminRows = a.data;
   $('aRows').innerHTML = workers.length ? workers.map((w, i) => {
     const s = stats(daysOf(w));
-    return `<tr><td>${i + 1}</td><td>${esc(w.full_name || '(chưa đặt tên)')}</td><td>${esc(w.phone)}</td><td class="c">${s.work}</td><td class="c">${s.h.toFixed(1)}</td><td class="c">${s.leave}</td><td><button class="ghost mini" data-w="${w.id}">Chi tiết</button></td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${esc(w.full_name || '(chưa đặt tên)')}</td><td>${esc(w.phone)}</td><td class="c">${s.work}</td><td class="c">${s.h.toFixed(1)}</td><td class="c">${s.leave}</td><td style="white-space:nowrap"><button class="ghost mini" data-w="${w.id}">Chi tiết</button> <button class="ghost mini" style="color:var(--out);border-color:var(--out)" data-del="${w.id}">Xoá</button></td></tr>`;
   }).join('') : '<tr><td colspan="7" class="muted">Chưa có nhân công nào đăng ký.</td></tr>';
   if (selected) showDetail(selected);
 }
-$('aRows').onclick = e => { if (e.target.dataset.w) showDetail(e.target.dataset.w); };
+$('aRows').onclick = async e => {
+  if (e.target.dataset.w) return showDetail(e.target.dataset.w);
+  const id = e.target.dataset.del; if (!id) return;
+  const w = workers.find(x => x.id === id); if (!w) return;
+  const label = `${w.full_name || '(chưa đặt tên)'} (${w.phone})`;
+  if (!confirm(`XOÁ tài khoản ${label}?\n\nToàn bộ dữ liệu chấm công của người này sẽ mất vĩnh viễn. Nên xuất Excel trước khi xoá.`)) return;
+  if (!confirm(`Xác nhận lần cuối: xoá ${label}?`)) return;
+  e.target.disabled = true;
+  const {error} = await sb.rpc('admin_delete_user', {target: id});
+  if (error) { e.target.disabled = false; return $('aErr').textContent = 'Không xoá được: ' + error.message; }
+  if (selected === id) { selected = null; show('detail', false); }
+  await loadAdmin();
+};
 function showDetail(id) {
   selected = id;
   const w = workers.find(x => x.id === id); if (!w) return;
