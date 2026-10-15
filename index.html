@@ -191,6 +191,10 @@ function setPos(str, enabled) {
   });
 }
 
+/* Chỉ được tick 1 trong 2 */
+$('posClimb').onchange = () => { if ($('posClimb').checked) $('posGround').checked = false; };
+$('posGround').onchange = () => { if ($('posGround').checked) $('posClimb').checked = false; };
+
 /* ---------- Ngày trong tháng ---------- */
 function range(ym) { const [y, m] = ym.split('-').map(Number); return [`${ym}-01`, `${ym}-${pad(new Date(y, m, 0).getDate())}`]; }
 function buildDays(ym, rows) {
@@ -277,7 +281,7 @@ $('punch').onclick = async () => {
   const err = $('punchErr'), task = $('task').value.trim(), pos = getPos(), now = new Date(nowMs()).toISOString();
   err.textContent = '';
   if (!todayRow && !task) return err.textContent = 'Nhập nội dung công việc hôm nay trước khi vào ca.';
-  if (!pos) return err.textContent = 'Tick chọn vị trí làm việc: Leo cột hoặc Dưới đất.';
+  if (!pos) return err.textContent = 'Tick chọn 1 vị trí làm việc: Leo cột hoặc Dưới đất.';
   $('punch').disabled = true;
   const {error} = todayRow
     ? await sb.from('attendance').update({check_out: now, task: task || todayRow.task, position: pos}).eq('id', todayRow.id)
