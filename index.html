@@ -94,7 +94,7 @@ const EMAIL_DOMAIN = "chamcong.example.com";       // chỉ dùng nội bộ đ�
       <div class="clock" id="clock">--:--:--</div>
       <div class="state" id="state"></div>
       <label for="task">Nội dung công việc hôm nay</label>
-      <textarea id="task" placeholder="Nội dung làm việc"></textarea>
+      <textarea id="task" placeholder="Ví dụ: Trộn và đổ bê tông móng khu B"></textarea>
       <div class="pos">
         <span class="lbl">Vị trí làm việc</span>
         <div class="opts">
@@ -322,12 +322,16 @@ $('myExport').onclick = () => {
 };
 
 /* ---------- Quản lý ---------- */
-$('tabMe').onclick = () => { show('viewMe', true); show('viewAdmin', false); $('tabMe').className = ''; $('tabAdmin').className = 'ghost'; };
-$('tabAdmin').onclick = () => { show('viewMe', false); show('viewAdmin', true); $('tabAdmin').className = ''; $('tabMe').className = 'ghost'; loadAdmin(); };
+$('tabMe').onclick = () => { show('viewMe', true); show('viewAdmin', false); $('tabMe').classList.remove('ghost'); $('tabAdmin').classList.add('ghost'); };
+$('tabAdmin').onclick = () => {
+  if (!profile || profile.role !== 'admin') return;   // chỉ quản lý mới vào được
+  show('viewMe', false); show('viewAdmin', true); $('tabAdmin').classList.remove('ghost'); $('tabMe').classList.add('ghost'); loadAdmin();
+};
 $('aMonth').onchange = loadAdmin;
 
 const daysOf = w => buildDays($('aMonth').value, adminRows.filter(r => r.user_id === w.id));
 async function loadAdmin() {
+  if (!profile || profile.role !== 'admin') return;
   const ym = $('aMonth').value || curMonth(), [from, to] = range(ym);
   const [p, a] = await Promise.all([
     sb.from('profiles').select('*').order('full_name'),
